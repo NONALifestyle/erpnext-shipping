@@ -14,6 +14,16 @@ from frappe.utils.password import get_decrypted_password
 from erpnext_shipping.erpnext_shipping.utils import show_error_alert
 
 ARAMEX_PROVIDER = "Aramex"
+CALCULATE_RATE_URL = "https://ws.aramex.net/ShippingAPI.V2/RateCalculator/Service_1_0.svc/json/CalculateRate"
+CREATE_SHIPMENTS_URL = (
+    "https://ws.aramex.net/ShippingAPI.V2/Shipping/Service_1_0.svc/json/CreateShipments"
+)
+PRINT_LABEL_URL = (
+    "https://ws.aramex.net/ShippingAPI.V2/Shipping/Service_1_0.svc/json/PrintLabel"
+)
+TRACK_SHIPMENTS_URL = (
+    "https://ws.aramex.net/ShippingAPI.V2/Tracking/Service_1_0.svc/json/TrackShipments"
+)
 
 
 class Aramex(Document):
@@ -52,8 +62,6 @@ class AramexUtils:
         if not self.config["account_number"] or not self.config["account_pin"]:
             return []
 
-        url = "https://ws.aramex.net/ShippingAPI.V2/RateCalculator/Service_1_0.svc/json/CalculateRate"
-
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
@@ -69,14 +77,13 @@ class AramexUtils:
 
         try:
             response_data = requests.post(
-                url=url, headers=headers, data=json.dumps(payload)
+                url=CALCULATE_RATE_URL, headers=headers, data=json.dumps(payload)
             )
             response_data = json.loads(response_data.text)
             if response_data["HasErrors"]:
                 return []
             available_services = []
             available_service = {
-                "id": "1111",
                 "carrier": "Aramex",
                 # "carrier_name": "Aramex",
                 "service_name": "PPX",
@@ -107,7 +114,6 @@ class AramexUtils:
         delivery_company_name,
     ):
         # Create a transaction at Aramex
-        url = "https://ws.aramex.net/ShippingAPI.V2/Shipping/Service_1_0.svc/json/CreateShipments"
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
@@ -127,7 +133,7 @@ class AramexUtils:
         )
         try:
             response_data = requests.post(
-                url=url, headers=headers, data=json.dumps(payload)
+                url=CREATE_SHIPMENTS_URL, headers=headers, data=json.dumps(payload)
             )
 
             response_data = json.loads(response_data.text)
@@ -154,11 +160,10 @@ class AramexUtils:
             "Accept": "application/json",
             "Access-Control-Allow-Origin": "string",
         }
-        url = "https://ws.aramex.net/ShippingAPI.V2/Shipping/Service_1_0.svc/json/PrintLabel"
         payload = self.generate_shipment_label_payload(shipment_id)
         try:
             shipment_label_response = requests.post(
-                url=url, headers=headers, data=json.dumps(payload)
+                url=PRINT_LABEL_URL, headers=headers, data=json.dumps(payload)
             )
             shipment_label = json.loads(shipment_label_response.text)
             if shipment_label["HasErrors"]:
@@ -182,11 +187,10 @@ class AramexUtils:
             "Accept": "application/json",
             "Access-Control-Allow-Origin": "string",
         }
-        url = "https://ws.aramex.net/ShippingAPI.V2/Tracking/Service_1_0.svc/json/TrackShipments"
         payload = self.generate_tracking_payload(shipment_id)
         try:
             tracking_data_response = requests.post(
-                url=url, headers=headers, data=json.dumps(payload)
+                url=TRACK_SHIPMENTS_URL, headers=headers, data=json.dumps(payload)
             )
             tracking_data = json.loads(tracking_data_response.text)
             if tracking_data["HasErrors"]:
