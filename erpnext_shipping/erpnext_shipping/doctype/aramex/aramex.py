@@ -13,32 +13,35 @@ from frappe.model.document import Document
 from frappe.utils.password import get_decrypted_password
 from erpnext_shipping.erpnext_shipping.utils import show_error_alert
 
-ARAMEX_PROVIDER = 'Aramex'
+ARAMEX_PROVIDER = "Aramex"
 
 
 class Aramex(Document):
     pass
 
 
-class AramexUtils():
+class AramexUtils:
     def __init__(self):
         # self.config.password = get_decrypted_password(
         #     'Aramex', 'Aramex', 'password', raise_exception=False)
-        self.enabled = frappe.db.get_single_value('Aramex', 'enabled')
-        self.config = frappe.db.get_singles_dict('Aramex')
-        self.config['password'] = get_decrypted_password(
-            'Aramex', 'Aramex', 'password', raise_exception=False)
+        self.enabled = frappe.db.get_single_value("Aramex", "enabled")
+        self.config = frappe.db.get_singles_dict("Aramex")
+        self.config["password"] = get_decrypted_password(
+            "Aramex", "Aramex", "password", raise_exception=False
+        )
 
         if not self.enabled:
             link = frappe.utils.get_link_to_form(
-                'Aramex', 'Aramex', frappe.bold('Aramex Settings'))
-            frappe.throw(_('Please enable Aramex Integration in {0}'.format(
-                link)), title=_('Mandatory'))
+                "Aramex", "Aramex", frappe.bold("Aramex Settings")
+            )
+            frappe.throw(
+                _("Please enable Aramex Integration in {0}".format(link)),
+                title=_("Mandatory"),
+            )
 
-    def get_available_services(self, pickup_address, delivery_address, shipment_parcel, pickup_date):
-        print("------------self.config-------------")
-        print(self.config)
-
+    def get_available_services(
+        self, pickup_address, delivery_address, shipment_parcel, pickup_date
+    ):
         # Retrieve rates at Aramex from specification stated.
         parcel_list = self.get_parcel_list(json.loads(shipment_parcel))
         shipment_parcel_params = self.get_formatted_parcel_params(parcel_list)
@@ -46,60 +49,41 @@ class AramexUtils():
         # url = self.get_formatted_request_url(
         #     pickup_address, delivery_address, shipment_parcel_params)
 
-        if not self.config['account_number'] or not self.config['account_pin']:
+        if not self.config["account_number"] or not self.config["account_pin"]:
             return []
 
         url = "https://ws.aramex.net/ShippingAPI.V2/RateCalculator/Service_1_0.svc/json/CalculateRate"
 
         headers = {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'Access-Control-Allow-Origin': 'string'
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "Access-Control-Allow-Origin": "string",
         }
-
-        print("------------shipment details-------------")
-        print("------------self----------")
-        print(self)
-        print("------pickup_address-------")
-        print(pickup_address)
-        print("-------delivery_address--------")
-        print(delivery_address)
-        print("-------shipment_parcel--------")
-        print(shipment_parcel)
-        print("------pickup_date-------")
-        print(pickup_date)
 
         payload = self.generate_rate_calculation_payload(
             pickup_address=pickup_address,
             delivery_address=delivery_address,
             shipment_parcel=shipment_parcel,
-            pickup_date=pickup_date
+            pickup_date=pickup_date,
         )
-
-        print("-------payload--------")
-        print(json.dumps(payload))
 
         try:
             response_data = requests.post(
-                url=url,
-                headers=headers,
-                data=json.dumps(payload)
+                url=url, headers=headers, data=json.dumps(payload)
             )
             response_data = json.loads(response_data.text)
-            print("==============response_data==============")
-            print(response_data)
-            if (response_data['HasErrors']):
+            if response_data["HasErrors"]:
                 return []
             available_services = []
             available_service = {
                 "id": "1111",
                 "carrier": "Aramex",
                 # "carrier_name": "Aramex",
-                "service_name": 'PPX',
+                "service_name": "PPX",
                 "is_preferred": 0,
                 "real_weight": 0,
-                "total_price": response_data['TotalAmount']['Value'],
-                "price_info": response_data['TotalAmount'],
+                "total_price": response_data["TotalAmount"]["Value"],
+                "price_info": response_data["TotalAmount"],
             }
             available_services.append(available_service)
             return available_services
@@ -108,60 +92,57 @@ class AramexUtils():
 
         return []
 
-    def create_shipment(self, pickup_address, delivery_address, shipment_parcel,
-                        description_of_content, pickup_date, pickup_time, value_of_goods, pickup_contact,
-                        delivery_contact, service_info):
-
-        print("1")
-        print(pickup_address)
-        print("2")
-        print(delivery_address)
-        print("3")
-        print(shipment_parcel)
-        print("4")
-        print(description_of_content)
-        print("5")
-        print(type(pickup_date))
-        print(pickup_date)
-        print(type(pickup_time))
-        print(pickup_time)
-        print("6")
-        print(value_of_goods)
-        print("7")
-        print(pickup_contact)
-        print("8")
-        print(delivery_contact)
-        print("9")
-        print(service_info)
+    def create_shipment(
+        self,
+        pickup_address,
+        delivery_address,
+        shipment_parcel,
+        description_of_content,
+        pickup_date,
+        pickup_time,
+        value_of_goods,
+        pickup_contact,
+        delivery_contact,
+        service_info,
+        delivery_company_name,
+    ):
         # Create a transaction at Aramex
-
-        url = 'https://ws.aramex.net/ShippingAPI.V2/Shipping/Service_1_0.svc/json/CreateShipments'
+        url = "https://ws.aramex.net/ShippingAPI.V2/Shipping/Service_1_0.svc/json/CreateShipments"
         headers = {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'Access-Control-Allow-Origin': 'string'
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "Access-Control-Allow-Origin": "string",
         }
         payload = self.generate_create_shipment_payload(
-            pickup_address, pickup_contact, delivery_address, delivery_contact, pickup_date, pickup_time, shipment_parcel, description_of_content, value_of_goods)
+            pickup_address,
+            pickup_contact,
+            delivery_address,
+            delivery_contact,
+            pickup_date,
+            pickup_time,
+            shipment_parcel,
+            description_of_content,
+            value_of_goods,
+            delivery_company_name,
+        )
         try:
             response_data = requests.post(
-                url=url,
-                headers=headers,
-                data=json.dumps(payload)
+                url=url, headers=headers, data=json.dumps(payload)
             )
-            print(response_data)
+
             response_data = json.loads(response_data.text)
-            print(response_data)
-            if (response_data['HasErrors']):
+
+            if response_data["HasErrors"]:
                 return {}
-            shipmet = response_data['Shipments'][0]
+            shipmet = response_data["Shipments"][0]
 
             return {
-                'shipment_id': shipmet['ID'],
-                'carrier': "Aramex",
-                'carrier_service': shipmet['ShipmentDetails']['ProductType'],
-                'shipment_label': shipmet['ShipmentLabel']['LabelURL'],
-                'awb_number': shipmet['ID'],
+                "shipment_id": shipmet["ID"],
+                "carrier": "Aramex",
+                "carrier_service": shipmet["ShipmentDetails"]["ProductType"],
+                "shipment_label": shipmet["ShipmentLabel"]["LabelURL"],
+                "awb_number": shipmet["ID"],
+                "tracking_url": f'https://www.aramex.com/us/en/track/results?mode=0&ShipmentNumber={shipmet["ID"]}',
             }
         except Exception:
             show_error_alert("creating Aramex Shipment")
@@ -169,24 +150,24 @@ class AramexUtils():
     def get_label(self, shipment_id):
         # Retrieve shipment label from Aramex
         headers = {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'Access-Control-Allow-Origin': 'string'
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "Access-Control-Allow-Origin": "string",
         }
         url = "https://ws.aramex.net/ShippingAPI.V2/Shipping/Service_1_0.svc/json/PrintLabel"
         payload = self.generate_shipment_label_payload(shipment_id)
         try:
-            shipment_label_response = requests.post(url=url,
-                                                    headers=headers,
-                                                    data=json.dumps(payload)
-                                                    )
+            shipment_label_response = requests.post(
+                url=url, headers=headers, data=json.dumps(payload)
+            )
             shipment_label = json.loads(shipment_label_response.text)
-            if (shipment_label['HasErrors']):
-                message = _("Please make sure Shipment (ID: {0}), exists and is a complete Shipment on Aramex.") \
-                    .format(shipment_id)
+            if shipment_label["HasErrors"]:
+                message = _(
+                    "Please make sure Shipment (ID: {0}), exists and is a complete Shipment on Aramex."
+                ).format(shipment_id)
                 frappe.msgprint(msg=_(message), title=_("Label Not Found"))
 
-            return shipment_label['ShipmentLabel']['LabelURL']
+            return shipment_label["ShipmentLabel"]["LabelURL"]
 
         except Exception:
             show_error_alert("printing Aramex Label")
@@ -197,27 +178,26 @@ class AramexUtils():
         from erpnext_shipping.erpnext_shipping.utils import get_tracking_url
 
         headers = {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'Access-Control-Allow-Origin': 'string'
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "Access-Control-Allow-Origin": "string",
         }
         url = "https://ws.aramex.net/ShippingAPI.V2/Tracking/Service_1_0.svc/json/TrackShipments"
         payload = self.generate_tracking_payload(shipment_id)
         try:
-            tracking_data_response = requests.post(url=url,
-                                                   headers=headers,
-                                                   data=json.dumps(payload)
-                                                   )
+            tracking_data_response = requests.post(
+                url=url, headers=headers, data=json.dumps(payload)
+            )
             tracking_data = json.loads(tracking_data_response.text)
-            print("----------tracking_data--------")
-            print(tracking_data)
-            if (tracking_data['HasErrors']):
+            if tracking_data["HasErrors"]:
                 return {}
-            trackingResult = tracking_data['TrackingResults'][0]
+            trackingResult = tracking_data["TrackingResults"][0]
             return {
-                'tracking_status': trackingResult['Value'][0]['UpdateDescription'],
+                "tracking_status": trackingResult["Value"][0]["UpdateDescription"]
+                if len(trackingResult["Value"])
+                else "",
                 # 'tracking_status_info': tracking_data['state'],
-                'tracking_url': f'https://www.aramex.com/us/en/track/results?mode=0&ShipmentNumber={shipment_id}'
+                "tracking_url": f"https://www.aramex.com/us/en/track/results?mode=0&ShipmentNumber={shipment_id}",
             }
 
             # if 'trackings' in tracking_data:
@@ -237,84 +217,93 @@ class AramexUtils():
             show_error_alert("updating Aramex Shipment")
         return []
 
-    def get_formatted_request_url(self, pickup_address, delivery_address, shipment_parcel_params):
+    def get_formatted_request_url(
+        self, pickup_address, delivery_address, shipment_parcel_params
+    ):
         """Returns formatted request URL for Aramex."""
-        url = 'https://api.aramex.com/v1/services?from[country]={from_country_code}&from[zip]={from_zip}&to[country]={to_country_code}&to[zip]={to_zip}&{shipment_parcel_params}sortBy=totalPrice&source=PRO'.format(
+        url = "https://api.aramex.com/v1/services?from[country]={from_country_code}&from[zip]={from_zip}&to[country]={to_country_code}&to[zip]={to_zip}&{shipment_parcel_params}sortBy=totalPrice&source=PRO".format(
             from_country_code=pickup_address.country_code,
             from_zip=pickup_address.pincode,
             to_country_code=delivery_address.country_code,
             to_zip=delivery_address.pincode,
-            shipment_parcel_params=shipment_parcel_params
+            shipment_parcel_params=shipment_parcel_params,
         )
         return url
 
     def get_formatted_parcel_params(self, parcel_list):
         """Returns formatted parcel params for Aramex URL."""
-        shipment_parcel_params = ''
-        for (index, parcel) in enumerate(parcel_list):
-            shipment_parcel_params += 'packages[{index}][height]={height}&packages[{index}][length]={length}&packages[{index}][weight]={weight}&packages[{index}][width]={width}&'.format(
+        shipment_parcel_params = ""
+        for index, parcel in enumerate(parcel_list):
+            shipment_parcel_params += "packages[{index}][height]={height}&packages[{index}][length]={length}&packages[{index}][weight]={weight}&packages[{index}][width]={width}&".format(
                 index=index,
-                height=parcel['height'],
-                length=parcel['length'],
-                weight=parcel['weight'],
-                width=parcel['width']
+                height=parcel["height"],
+                length=parcel["length"],
+                weight=parcel["weight"],
+                width=parcel["width"],
             )
         return shipment_parcel_params
 
     def get_service_dict(self, response):
         """Returns a dictionary with service info."""
         available_service = frappe._dict()
-        available_service.service_provider = PACKLINK_PROVIDER
-        available_service.carrier = response['carrier_name']
-        available_service.carrier_name = response['name']
-        available_service.service_name = ''
+        available_service.service_provider = ARAMEX_PROVIDER
+        available_service.carrier = response["carrier_name"]
+        available_service.carrier_name = response["name"]
+        available_service.service_name = ""
         available_service.is_preferred = 0
-        available_service.total_price = response['price']['base_price']
-        available_service.actual_price = response['price']['total_price']
-        available_service.service_id = response['id']
-        available_service.available_dates = response['available_dates']
+        available_service.total_price = response["price"]["base_price"]
+        available_service.actual_price = response["price"]["total_price"]
+        available_service.service_id = response["id"]
+        available_service.available_dates = response["available_dates"]
         return available_service
 
     def get_shipment_address_contact_dict(self, address, contact):
         """Returns a dict with Address and Contact Info for Aramex Payload."""
         return {
-            'city': address.city,
-            'company': address.address_title,
-            'country': address.country_code,
-            'email': contact.email,
-            'name': contact.first_name,
-            'phone': contact.phone,
-            'state': address.country,
-            'street1': address.address_line1,
-            'street2': address.address_line2,
-            'surname': contact.last_name,
-            'zip_code': address.pincode,
+            "city": address.city,
+            "company": address.address_title,
+            "country": address.country_code,
+            "email": contact.email,
+            "name": contact.first_name,
+            "phone": contact.phone,
+            "state": address.country,
+            "street1": address.address_line1,
+            "street2": address.address_line2,
+            "surname": contact.last_name,
+            "zip_code": address.pincode,
         }
 
     def get_parcel_list(self, shipment_parcel):
         parcel_list = []
         for parcel in shipment_parcel:
-            for count in range(parcel.get('count')):
+            for count in range(parcel.get("count")):
                 formatted_parcel = {}
-                formatted_parcel['height'] = parcel.get('height')
-                formatted_parcel['width'] = parcel.get('width')
-                formatted_parcel['length'] = parcel.get('length')
-                formatted_parcel['weight'] = parcel.get('weight')
+                formatted_parcel["height"] = parcel.get("height")
+                formatted_parcel["width"] = parcel.get("width")
+                formatted_parcel["length"] = parcel.get("length")
+                formatted_parcel["weight"] = parcel.get("weight")
                 parcel_list.append(formatted_parcel)
         return parcel_list
 
-    def generate_rate_calculation_payload(self, pickup_address, delivery_address, shipment_parcel, pickup_date=None, service_info=None):
+    def generate_rate_calculation_payload(
+        self,
+        pickup_address,
+        delivery_address,
+        shipment_parcel,
+        pickup_date=None,
+        service_info=None,
+    ):
         shipment_parcel = json.loads(shipment_parcel)
         payload = {
             "ClientInfo": self.get_client_info(),
             "OriginAddress": {
-                "Line1": pickup_address['address_line1'],
-                "Line2": pickup_address['address_line2'] or "",
+                "Line1": pickup_address["address_line1"],
+                "Line2": pickup_address["address_line2"] or "",
                 "Line3": "",
-                "City": pickup_address['city'],
+                "City": pickup_address["city"],
                 "StateOrProvinceCode": "",
-                "PostCode": pickup_address['pincode'],
-                "CountryCode": pickup_address['country_code'],
+                "PostCode": pickup_address["pincode"],
+                "CountryCode": pickup_address["country_code"],
                 "Longitude": 0,
                 "Latitude": 0,
                 "BuildingNumber": None,
@@ -322,16 +311,16 @@ class AramexUtils():
                 "Floor": None,
                 "Apartment": None,
                 "POBox": None,
-                "Description": None
+                "Description": None,
             },
             "DestinationAddress": {
-                "Line1": delivery_address['address_line1'],
-                "Line2": delivery_address['address_line1'] or "",
+                "Line1": delivery_address["address_line1"],
+                "Line2": delivery_address["address_line1"] or "",
                 "Line3": "",
-                "City": delivery_address['city'],
+                "City": delivery_address["city"],
                 "StateOrProvinceCode": "",
-                "PostCode":  delivery_address['pincode'],
-                "CountryCode": delivery_address['country_code'],
+                "PostCode": delivery_address["pincode"],
+                "CountryCode": delivery_address["country_code"],
                 "Longitude": 0,
                 "Latitude": 0,
                 "BuildingNumber": None,
@@ -339,18 +328,15 @@ class AramexUtils():
                 "Floor": None,
                 "Apartment": None,
                 "POBox": None,
-                "Description": None
+                "Description": None,
             },
             "ShipmentDetails": {
                 "Dimensions": None,
-                "ActualWeight": {
-                    "Unit": "KG",
-                    "Value": shipment_parcel[0]['weight']
-                },
+                "ActualWeight": {"Unit": "KG", "Value": shipment_parcel[0]["weight"]},
                 "ChargeableWeight": None,
                 "DescriptionOfGoods": "Books",
                 "GoodsOriginCountry": "IN",
-                "NumberOfPieces": shipment_parcel[0]['count'] or 1,
+                "NumberOfPieces": shipment_parcel[0]["count"] or 1,
                 "ProductGroup": "EXP",
                 "ProductType": "PPX",
                 "PaymentType": "P",
@@ -362,139 +348,149 @@ class AramexUtils():
                 "CashAdditionalAmountDescription": "",
                 "CollectAmount": None,
                 "Services": "",
-                "Items": []
-            }
+                "Items": [],
+            },
         }
         return payload
 
-    def generate_create_shipment_payload(self, pickup_address, pickup_contact, delivery_address, delivery_contact, pickup_date, pickup_time, shipment_parcel, description_of_content, value_of_goods):
+    def generate_create_shipment_payload(
+        self,
+        pickup_address,
+        pickup_contact,
+        delivery_address,
+        delivery_contact,
+        pickup_date,
+        pickup_time,
+        shipment_parcel,
+        description_of_content,
+        value_of_goods,
+        delivery_company_name,
+    ):
         shipment_parcel = json.loads(shipment_parcel)
         payload = {
             "ClientInfo": self.get_client_info(),
-            "LabelInfo": {
-                "ReportID": 9729,
-                "ReportType": "URL"
-            },
+            "LabelInfo": {"ReportID": 9729, "ReportType": "URL"},
             "Shipments": [
                 {
                     "Shipper": {
-                        "AccountNumber": self.config['account_number'],
+                        "AccountNumber": self.config["account_number"],
                         "PartyAddress": {
-                            "Line1": pickup_address['address_line1'],
-                            "Line2": pickup_address['address_line2'] or "",
+                            "Line1": pickup_address["address_line1"],
+                            "Line2": pickup_address["address_line2"] or "",
                             "Line3": "",
-                            "City": pickup_address['city'],
+                            "City": pickup_address["city"],
                             "StateOrProvinceCode": "",
-                            "PostCode": pickup_address['pincode'],
-                            "CountryCode": pickup_address['country_code'],
+                            "PostCode": pickup_address["pincode"],
+                            "CountryCode": pickup_address["country_code"],
                         },
                         "Contact": {
                             "Department": "",
                             "PersonName": f"{pickup_contact['first_name']} {pickup_contact['last_name']}",
                             "Title": "",
-                            "CompanyName": pickup_contact['company_name'] or "",
-                            "PhoneNumber1": pickup_contact['phone'],
+                            "CompanyName": pickup_contact["company_name"] or "",
+                            "PhoneNumber1": pickup_contact["phone"],
                             "PhoneNumber1Ext": "",
                             "PhoneNumber2": "",
                             "PhoneNumber2Ext": "",
-                            "CellPhone": pickup_contact['phone'],
-                            "EmailAddress": pickup_contact['email'],
-                            "Type": ""
-                        }
+                            "CellPhone": pickup_contact["phone"],
+                            "EmailAddress": pickup_contact["email"],
+                            "Type": "",
+                        },
                     },
                     "Consignee": {
-                        "AccountNumber": self.config['account_number'],
+                        "AccountNumber": self.config["account_number"],
                         "PartyAddress": {
-                            "Line1": delivery_address['address_line1'],
-                            "Line2": delivery_address['address_line2'] or "",
+                            "Line1": delivery_address["address_line1"],
+                            "Line2": delivery_address["address_line2"] or "",
                             "Line3": "",
-                            "City": delivery_address['city'],
+                            "City": delivery_address["city"],
                             "StateOrProvinceCode": "",
-                            "PostCode": delivery_address['pincode'],
-                            "CountryCode": delivery_address['country_code'],
+                            "PostCode": delivery_address["pincode"],
+                            "CountryCode": delivery_address["country_code"],
                         },
                         "Contact": {
                             "Department": "",
                             "PersonName": f"{delivery_contact['first_name']} {delivery_contact['last_name']}",
                             "Title": "",
-                            "CompanyName": delivery_contact['company_name'] or "",
-                            "PhoneNumber1": delivery_contact['phone'],
+                            "CompanyName": delivery_company_name,
+                            "PhoneNumber1": delivery_contact["phone"],
                             "PhoneNumber1Ext": "",
                             "PhoneNumber2": "",
                             "PhoneNumber2Ext": "",
-                            "CellPhone": delivery_contact['phone'],
-                            "EmailAddress": delivery_contact['email_id'],
-                            "Type": ""
-                        }
+                            "CellPhone": delivery_contact["phone"],
+                            "EmailAddress": delivery_contact["email_id"],
+                            "Type": "",
+                        },
                     },
-
-                    "ShippingDateTime": self.getShippingDate(f'{pickup_date} {pickup_time}'),
+                    "ShippingDateTime": self.getShippingDate(
+                        f"{pickup_date} {pickup_time}"
+                    ),
                     "Details": {
                         "Dimensions": {
-                            "Length": shipment_parcel[0]['length'],
-                            "Width":shipment_parcel[0]['width'],
-                            "Height":shipment_parcel[0]['height'],
-                            "Unit":"CM"
+                            "Length": shipment_parcel[0]["length"],
+                            "Width": shipment_parcel[0]["width"],
+                            "Height": shipment_parcel[0]["height"],
+                            "Unit": "CM",
                         },
                         "ActualWeight": {
                             "Unit": "KG",
-                            "Value": shipment_parcel[0]['weight']
+                            "Value": shipment_parcel[0]["weight"],
                         },
                         "ChargeableWeight": None,
                         "DescriptionOfGoods": description_of_content,
                         "GoodsOriginCountry": "IN",
-                        "NumberOfPieces": shipment_parcel[0]['count'],
+                        "NumberOfPieces": shipment_parcel[0]["count"],
                         "ProductGroup": "EXP",
                         "ProductType": "PPX",
                         "PaymentType": "P",
                         "PaymentOptions": "",
                         "CustomsValueAmount": {
                             "CurrencyCode": "INR",
-                            "Value": value_of_goods
+                            "Value": value_of_goods,
                         },
                         "InsuranceAmount": None,
                         "AdditionalProperties": [
                             {
                                 "CategoryName": "CustomsClearance",
                                 "Name": "ShipperTaxIdVATEINNumber",
-                                "Value": "123456789101"
+                                "Value": "123456789101",
                             },
                             {
                                 "CategoryName": "CustomsClearance",
                                 "Name": "ConsigneeTaxIdVATEINNumber",
-                                "Value": "987654321012"
+                                "Value": "987654321012",
                             },
                             {
                                 "CategoryName": "CustomsClearance",
                                 "Name": "TaxPaid",
-                                "Value": "1"
+                                "Value": "1",
                             },
                             {
                                 "CategoryName": "CustomsClearance",
                                 "Name": "InvoiceDate",
-                                "Value": "08/17/2020"
+                                "Value": "08/17/2020",
                             },
                             {
                                 "CategoryName": "CustomsClearance",
                                 "Name": "InvoiceNumber",
-                                "Value": "Inv123456"
+                                "Value": "Inv123456",
                             },
                             {
                                 "CategoryName": "CustomsClearance",
                                 "Name": "TaxAmount",
-                                "Value": "120.52"
+                                "Value": "120.52",
                             },
                             {
                                 "CategoryName": "CustomsClearance",
                                 "Name": "IOSS",
-                                "Value": "IM1098494352"
+                                "Value": "IM1098494352",
                             },
                             {
                                 "CategoryName": "CustomsClearance",
                                 "Name": "ExporterType",
-                                "Value": "UT"
-                            }
-                        ]
+                                "Value": "UT",
+                            },
+                        ],
                     },
                 }
             ],
@@ -504,10 +500,7 @@ class AramexUtils():
     def generate_shipment_label_payload(self, shipment_id):
         payload = {
             "ClientInfo": self.get_client_info(),
-            "LabelInfo": {
-                "ReportID": 9729,
-                "ReportType": "URL"
-            },
+            "LabelInfo": {"ReportID": 9729, "ReportType": "URL"},
             "ShipmentNumber": shipment_id,
         }
         return payload
@@ -516,25 +509,23 @@ class AramexUtils():
         payload = {
             "ClientInfo": self.get_client_info(),
             "GetLastTrackingUpdateOnly": True,
-            "Shipments": [
-                shipment_id
-            ],
+            "Shipments": [shipment_id],
         }
         return payload
 
     def getShippingDate(self, shippingDate):
-        pattern = '%Y-%m-%d %H:%M:%S'
+        pattern = "%Y-%m-%d %H:%M:%S"
         epoch = int(time.mktime(time.strptime(shippingDate, pattern))) * 1000
-        return r'/Date(' + epoch.__str__() + ')/'
+        return r"/Date(" + epoch.__str__() + ")/"
 
     def get_client_info(self):
         return {
-            "UserName": self.config['user_name'],
-            "Password":  self.config['password'],
+            "UserName": self.config["user_name"],
+            "Password": self.config["password"],
             "Version": "v1.0",
-            "AccountNumber": self.config['account_number'],
-            "AccountPin": self.config['account_pin'],
-            "AccountEntity": self.config['account_entity'],
-            "AccountCountryCode": self.config['account_country_code'],
-            "Source": 24
+            "AccountNumber": self.config["account_number"],
+            "AccountPin": self.config["account_pin"],
+            "AccountEntity": self.config["account_entity"],
+            "AccountCountryCode": self.config["account_country_code"],
+            "Source": 24,
         }
