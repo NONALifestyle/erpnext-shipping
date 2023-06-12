@@ -65,7 +65,6 @@ class AramexUtils:
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "Access-Control-Allow-Origin": "string",
         }
 
         payload = self.generate_rate_calculation_payload(
@@ -117,7 +116,6 @@ class AramexUtils:
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "Access-Control-Allow-Origin": "string",
         }
         payload = self.generate_create_shipment_payload(
             pickup_address,
@@ -158,7 +156,6 @@ class AramexUtils:
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "Access-Control-Allow-Origin": "string",
         }
         payload = self.generate_shipment_label_payload(shipment_id)
         try:
@@ -185,7 +182,6 @@ class AramexUtils:
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "Access-Control-Allow-Origin": "string",
         }
         payload = self.generate_tracking_payload(shipment_id)
         try:
