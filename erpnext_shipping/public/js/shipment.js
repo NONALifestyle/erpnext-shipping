@@ -3,9 +3,6 @@
 
 frappe.ui.form.on("Shipment", {
   refresh: function (frm) {
-    frm.add_custom_button(__("Testing Aramex"), function () {
-      return frm.events.testing_aramex(frm);
-    });
     if (frm.doc.docstatus === 1 && !frm.doc.shipment_id) {
       frm.add_custom_button(__("Fetch Shipping Rates"), function () {
         return frm.events.fetch_shipping_rates(frm);
@@ -79,8 +76,6 @@ frappe.ui.form.on("Shipment", {
         },
         callback: function (r) {
           if (r.message && r.message.length) {
-            console.log("--------r.message---------");
-            console.log(r.message);
             select_from_available_services(frm, r.message);
           } else {
             frappe.msgprint({
@@ -147,28 +142,6 @@ frappe.ui.form.on("Shipment", {
       },
     });
   },
-  testing_aramex: function (frm) {
-    if (!frm.doc.shipment_id) {
-      frappe.call({
-        method:
-          "erpnext_shipping.erpnext_shipping.doctype.letmeship.letmeship.create_shipment",
-        freeze: true,
-        freeze_message: __("Tesitng Aramex"),
-        callback: function (r) {
-          if (r.message && r.message.length) {
-            select_from_available_services(frm, r.message);
-          } else {
-            frappe.msgprint({
-              message: __("No Shipment Services available"),
-              title: __("Note"),
-            });
-          }
-        },
-      });
-    } else {
-      frappe.throw(__("Shipment already created"));
-    }
-  },
 });
 
 function select_from_available_services(frm, available_services) {
@@ -227,6 +200,18 @@ function select_from_available_services(frm, available_services) {
   });
 
   frm.select_row = function (service_data) {
+    let delivery_company;
+    if (frm.doc.delivery_to_type == "Customer") {
+      delivery_company = frm.doc.delivery_customer;
+    }
+    if (frm.doc.delivery_to_type == "Supplier") {
+      delivery_company = frm.doc.delivery_supplier;
+    }
+    if (frm.doc.delivery_to_type == "Company") {
+      delivery_company = frm.doc.delivery_company;
+    }
+    if (!delivery_company) frappe.throw(__("Please select Delivery Details"));
+
     frappe.call({
       method: "erpnext_shipping.erpnext_shipping.shipping.create_shipment",
       freeze: true,
@@ -250,6 +235,7 @@ function select_from_available_services(frm, available_services) {
         service_data: service_data,
         pickup_company_name:
           frm.doc.pickup_from_type === "Company" ? frm.doc.pickup_company : "",
+        delivery_company_name: delivery_company,
         delivery_notes: delivery_notes,
       },
       callback: function (r) {
