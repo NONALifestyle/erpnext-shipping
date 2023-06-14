@@ -6,7 +6,6 @@ from __future__ import unicode_literals
 import json
 import frappe
 import requests
-import zeep
 import time
 from frappe import _
 from frappe.model.document import Document
