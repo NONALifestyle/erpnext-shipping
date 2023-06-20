@@ -3,6 +3,57 @@
 
 frappe.ui.form.on("Shipment", {
   refresh: function (frm) {
+    frm.add_custom_button(__("Create Delhivery Shipment"), function () {
+      frappe.call({
+        method: "erpnext_shipping.erpnext_shipping.shipping.create_shipment",
+        freeze: true,
+        freeze_message: __("Creating Shipment"),
+        args: {
+          shipment: frm.doc.name,
+          pickup_from_type: frm.doc.pickup_from_type,
+          delivery_to_type: frm.doc.delivery_to_type,
+          pickup_address_name: frm.doc.pickup_address_name,
+          delivery_address_name: frm.doc.delivery_address_name,
+          shipment_parcel: frm.doc.shipment_parcel,
+          description_of_content: frm.doc.description_of_content,
+          pickup_date: frm.doc.pickup_date,
+          pickup_time: frm.doc.pickup_from,
+          pickup_contact_name:
+            frm.doc.pickup_from_type === "Company"
+              ? frm.doc.pickup_contact_person
+              : frm.doc.pickup_contact_name,
+          delivery_contact_name: frm.doc.delivery_contact_name,
+          value_of_goods: frm.doc.value_of_goods,
+          service_data: { carrier: "Delhivery" },
+          pickup_company_name:
+            frm.doc.pickup_from_type === "Company"
+              ? frm.doc.pickup_company
+              : "",
+          delivery_company_name: "Delhivery",
+          delivery_notes: [],
+        },
+        callback: function (r) {
+          if (!r.exc) {
+            frm.reload_doc();
+            console.log("shipment response-----");
+            console.log(r);
+            frappe.msgprint({
+              message: __("Shipment {1} has been created with {0}.", [
+                r.message.carrier,
+                r.message.shipment_id.bold(),
+              ]),
+              title: __("Shipment Created"),
+              indicator: "green",
+            });
+            // frm.events.update_tracking(
+            //   frm,
+            //   r.message.carrier,
+            //   r.message.shipment_id
+            // );
+          }
+        },
+      });
+    });
     if (frm.doc.docstatus === 1 && !frm.doc.shipment_id) {
       frm.add_custom_button(__("Fetch Shipping Rates"), function () {
         return frm.events.fetch_shipping_rates(frm);
@@ -96,7 +147,7 @@ frappe.ui.form.on("Shipment", {
       freeze: true,
       freeze_message: __("Printing Shipping Label"),
       args: {
-        shipment_id: frm.doc.shipment_id,
+        awb_number: frm.doc.awb_number,
         carrier: frm.doc.carrier,
       },
       callback: function (r) {
@@ -108,6 +159,15 @@ frappe.ui.form.on("Shipment", {
             const file = new Blob([array], { type: "application/pdf" });
             const file_url = URL.createObjectURL(file);
             window.open(file_url);
+          } else if (frm.doc.carrier == "Delhivery") {
+            r.message.forEach(async (url) => {
+              let response = await fetch(url);
+              let data = await response.text();
+              let downloadLink = document.createElement("a");
+              downloadLink.href = data;
+              downloadLink.download = frm.doc.awb_number;
+              downloadLink.click();
+            });
           } else {
             if (Array.isArray(r.message)) {
               r.message.forEach((url) => window.open(url));
@@ -131,7 +191,7 @@ frappe.ui.form.on("Shipment", {
       freeze_message: __("Updating Tracking"),
       args: {
         shipment: frm.doc.name,
-        shipment_id: shipment_id,
+        awb_number: frm.doc.awb_number,
         carrier: carrier,
         delivery_notes: delivery_notes,
       },

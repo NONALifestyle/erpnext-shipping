@@ -151,13 +151,13 @@ class AramexUtils:
         except Exception:
             show_error_alert("creating Aramex Shipment")
 
-    def get_label(self, shipment_id):
+    def get_label(self, awb_number):
         # Retrieve shipment label from Aramex
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
         }
-        payload = self.generate_shipment_label_payload(shipment_id)
+        payload = self.generate_shipment_label_payload(awb_number)
         try:
             shipment_label_response = requests.post(
                 url=PRINT_LABEL_URL, headers=headers, data=json.dumps(payload)
@@ -166,7 +166,7 @@ class AramexUtils:
             if shipment_label["HasErrors"]:
                 message = _(
                     "Please make sure Shipment (ID: {0}), exists and is a complete Shipment on Aramex."
-                ).format(shipment_id)
+                ).format(awb_number)
                 frappe.msgprint(msg=_(message), title=_("Label Not Found"))
 
             return shipment_label["ShipmentLabel"]["LabelURL"]
@@ -175,7 +175,7 @@ class AramexUtils:
             show_error_alert("printing Aramex Label")
         return []
 
-    def get_tracking_data(self, shipment_id):
+    def get_tracking_data(self, awb_number):
         # Get Aramex Tracking Info
         from erpnext_shipping.erpnext_shipping.utils import get_tracking_url
 
@@ -183,7 +183,7 @@ class AramexUtils:
             "Content-Type": "application/json",
             "Accept": "application/json",
         }
-        payload = self.generate_tracking_payload(shipment_id)
+        payload = self.generate_tracking_payload(awb_number)
         try:
             tracking_data_response = requests.post(
                 url=TRACK_SHIPMENTS_URL, headers=headers, data=json.dumps(payload)
@@ -197,7 +197,7 @@ class AramexUtils:
                 if len(trackingResult["Value"])
                 else "",
                 # 'tracking_status_info': tracking_data['state'],
-                "tracking_url": f"https://www.aramex.com/us/en/track/results?mode=0&ShipmentNumber={shipment_id}",
+                "tracking_url": f"https://www.aramex.com/us/en/track/results?mode=0&ShipmentNumber={awb_number}",
             }
 
             # if 'trackings' in tracking_data:
@@ -497,19 +497,19 @@ class AramexUtils:
         }
         return payload
 
-    def generate_shipment_label_payload(self, shipment_id):
+    def generate_shipment_label_payload(self, awb_number):
         payload = {
             "ClientInfo": self.get_client_info(),
             "LabelInfo": {"ReportID": 9729, "ReportType": "URL"},
-            "ShipmentNumber": shipment_id,
+            "ShipmentNumber": awb_number,
         }
         return payload
 
-    def generate_tracking_payload(self, shipment_id):
+    def generate_tracking_payload(self, awb_number):
         payload = {
             "ClientInfo": self.get_client_info(),
             "GetLastTrackingUpdateOnly": True,
-            "Shipments": [shipment_id],
+            "Shipments": [awb_number],
         }
         return payload
 
