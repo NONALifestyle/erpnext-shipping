@@ -25,56 +25,33 @@ from erpnext_shipping.erpnext_shipping.doctype.delhivery.delhivery import (
 
 
 @frappe.whitelist()
-def fetch_shipping_rates(
-    pickup_from_type,
-    delivery_to_type,
+def fetch_shipping_services(
     pickup_address_name,
     delivery_address_name,
-    shipment_parcel,
-    description_of_content,
-    pickup_date,
-    value_of_goods,
-    pickup_contact_name=None,
-    delivery_contact_name=None,
 ):
     # Return Shipping Rates for the various Shipping Providers
-    shipment_prices = []
+    shipment_services = []
     aramex_enabled = frappe.db.get_single_value("Aramex", "enabled")
-    # bluedart_enabled = frappe.db.get_single_value('BlueDart', 'enabled')
     pickup_address = get_address(pickup_address_name)
     delivery_address = get_address(delivery_address_name)
 
-    # Fetch Aramex Rates
-    if aramex_enabled:
-        aramex = AramexUtils()
-        aramex_prices = (
-            aramex.get_available_services(
-                pickup_address=pickup_address,
-                delivery_address=delivery_address,
-                shipment_parcel=shipment_parcel,
-                pickup_date=pickup_date,
+    if (
+        pickup_address.get("country") == "India"
+        and delivery_address.get("country") == "India"
+    ):
+        delhivery_enabled = frappe.db.get_single_value("Delhivery", "enabled")
+        if delhivery_enabled:
+            shipment_services.append(
+                {
+                    "carrier": DELHIVERY_PROVIDER,
+                }
             )
-            or []
-        )
-        # aramex_prices = match_parcel_service_type_carrier(
-        #     aramex_prices, ['carrier_name', 'carrier'])
-        shipment_prices = shipment_prices + aramex_prices
 
-    # Fetch BlueDart Rates
-    # if bluedart_enabled:
-    #     aramex = AramexUtils()
-    #     aramex_prices = aramex.get_available_services(
-    #         pickup_address=pickup_address,
-    #         delivery_address=delivery_address,
-    #         shipment_parcel=shipment_parcel,
-    #         pickup_date=pickup_date
-    #     ) or []
-    #     # aramex_prices = match_parcel_service_type_carrier(
-    #     #     aramex_prices, ['carrier_name', 'carrier'])
-    #     shipment_prices = shipment_prices + aramex_prices
+    else:
+        if aramex_enabled:
+            shipment_services.append({"carrier": ARAMEX_PROVIDER})
 
-    shipment_prices = sorted(shipment_prices, key=lambda k: k["total_price"])
-    return shipment_prices
+    return shipment_services
 
 
 @frappe.whitelist()
@@ -138,12 +115,9 @@ def create_shipment(
             delivery_address=delivery_address,
             shipment_parcel=shipment_parcel,
             description_of_content=description_of_content,
-            pickup_date=pickup_date,
-            pickup_time=pickup_time,
             value_of_goods=value_of_goods,
             pickup_contact=pickup_contact,
             delivery_contact=delivery_contact,
-            service_info=service_info,
             delivery_company_name=delivery_company_name,
         )
 

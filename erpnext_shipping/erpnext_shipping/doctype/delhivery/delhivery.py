@@ -47,21 +47,14 @@ class DelhiveryUtils:
         delivery_address,
         shipment_parcel,
         description_of_content,
-        pickup_date,
-        pickup_time,
         value_of_goods,
-        pickup_contact,
         delivery_contact,
-        service_info,
         delivery_company_name,
     ):
         payload = self.generate_create_shipment_payload(
             pickup_address,
-            pickup_contact,
             delivery_address,
             delivery_contact,
-            pickup_date,
-            pickup_time,
             shipment_parcel,
             description_of_content,
             value_of_goods,
@@ -82,7 +75,6 @@ class DelhiveryUtils:
                 if response.status_code == 200:
                     break
                 if response.status_code == 401:
-                    print("Token Expired", count)
                     self.generate_token()
                     count += 1
                     continue
@@ -90,14 +82,9 @@ class DelhiveryUtils:
                 frappe.throw(e)
 
         response_data = json.loads(response.text)
-        print("esponse_data--------- create manifest")
-        print(response_data)
         time.sleep(2)
 
         shipment = self.get_shipment(response_data["job_id"])
-
-        print("shipment-----response in create---- create manifest")
-        print(shipment)
 
         shipment_value = shipment["status"]["value"]
 
@@ -111,16 +98,16 @@ class DelhiveryUtils:
 
     def get_label(self, awb_number):
         # Retrieve shipment label from Delhivery
-        headers = {
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-            "Authorization": f"Bearer {self.config['token']}",
-        }
         count = 0
         while count < 3:
             try:
+                headers = {
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                    "Authorization": f"Bearer {self.config['token']}",
+                }
                 response = requests.get(
-                    url=f"{PRINT_LABEL_URL}/{220042522}?document=true", headers=headers
+                    url=f"{PRINT_LABEL_URL}/{awb_number}?document=true", headers=headers
                 )
                 if response.status_code == 200:
                     break
@@ -137,14 +124,14 @@ class DelhiveryUtils:
         return shipment_label["data"]
 
     def get_tracking_data(self, awb_number):
-        headers = {
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-            "Authorization": f"Bearer {self.config['token']}",
-        }
         count = 0
         while count < 3:
             try:
+                headers = {
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                    "Authorization": f"Bearer {self.config['token']}",
+                }
                 response = requests.get(
                     url=f"{TRACK_SHIPMENTS_URL}{awb_number}", headers=headers
                 )
@@ -167,49 +154,40 @@ class DelhiveryUtils:
     def generate_create_shipment_payload(
         self,
         pickup_address,
-        pickup_contact,
         delivery_address,
         delivery_contact,
-        pickup_date,
-        pickup_time,
         shipment_parcel,
         description_of_content,
         value_of_goods,
         delivery_company_name,
     ):
         shipment_parcel = json.loads(shipment_parcel)
+        suborders = []
+        weight = 0
+        for parcel in shipment_parcel:
+            suborders.append(
+                {
+                    "count": parcel["count"],
+                    "description": description_of_content,
+                }
+            )
+            weight += parcel["weight"]
         payload = {
-            "ident": "",
-            "pickup_location": "New Test NONA",
+            "pickup_location": pickup_address["name"],
             "dropoff_location": {
-                "consignee": "PT-GANDHI ROAD-KANCHIPURAM",
-                "address": "Pantaloons, Mogili House,66-68, Gandhi Road",
-                "city": "KANCHIPURAM",
-                "region": "TAMIL NADU",
-                "zip": "110011",
-                "phone": "733136233",
-            },
-            "return_address": {
-                "address": "738 Udhay nagar",
-                "zip": "201301",
-                "name": "shopper stop",
-                "city": "gurgaon",
-                "region": "haryana",
-                "phone": "8383838383",
+                "consignee": delivery_company_name,
+                "address": f"{delivery_address['address_line1']} {delivery_address['address_line2'] or ''}",
+                "city": delivery_address["city"],
+                "region": delivery_address["state"],
+                "zip": delivery_address["pincode"],
+                "phone": delivery_contact["phone"],
             },
             "d_mode": "Prepaid",
-            "amount": 0.0,
+            "amount": value_of_goods,
             "rov_insurance": True,
             "invoices": [{"ident": "TEST1", "n_value": 10478, "ewaybill": ""}],
-            "weight": 73600.0,
-            "suborders": [
-                {"ident": "", "count": 1, "description": "Box1"},
-                {"ident": "", "count": 1, "description": "Box2"},
-                {"ident": "", "count": 1, "description": "Box3"},
-                {"ident": "", "count": 1, "description": "Box4"},
-                {"ident": "", "count": 1, "description": "Box5"},
-            ],
-            "dimensions": [{"length": 5.0, "width": 5.0, "height": 5.0, "count": 5}],
+            "weight": weight * 1000,
+            "suborders": suborders,
             "consignee_gst_tin": "",
             "seller_gst_tin": "",
         }
@@ -235,7 +213,6 @@ class DelhiveryUtils:
                     else:
                         break
                 if response.status_code == 401:
-                    print("Token Expired", count)
                     self.generate_token()
                     count += 1
                     continue
@@ -244,16 +221,10 @@ class DelhiveryUtils:
             except Exception as e:
                 frappe.throw(e)
 
-        print("get shipment  response_data==============")
-        print(response_data)
         return response_data
 
     def generate_token(self):
-        print("in generate_toke-----")
-        print(self)
-        print(vars(self))
         try:
-            print("in try-----")
             headers = {
                 "Content-Type": "application/json",
                 "Accept": "application/json",
