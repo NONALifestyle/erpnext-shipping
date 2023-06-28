@@ -4,8 +4,8 @@
 frappe.ui.form.on("Shipment", {
   refresh: function (frm) {
     if (frm.doc.docstatus === 1 && !frm.doc.shipment_id) {
-      frm.add_custom_button(__("Fetch Shipping Rates"), function () {
-        return frm.events.fetch_shipping_rates(frm);
+      frm.add_custom_button(__("Select Service"), function () {
+        return frm.events.fetch_shipping_services(frm);
       });
     }
     if (frm.doc.shipment_id) {
@@ -52,27 +52,16 @@ frappe.ui.form.on("Shipment", {
     }
   },
 
-  fetch_shipping_rates: function (frm) {
+  fetch_shipping_services: function (frm) {
     if (!frm.doc.shipment_id) {
       frappe.call({
         method:
-          "erpnext_shipping.erpnext_shipping.shipping.fetch_shipping_rates",
+          "erpnext_shipping.erpnext_shipping.shipping.fetch_shipping_services",
         freeze: true,
-        freeze_message: __("Fetching Shipping Rates"),
+        freeze_message: __("Fetching Services"),
         args: {
-          pickup_from_type: frm.doc.pickup_from_type,
-          delivery_to_type: frm.doc.delivery_to_type,
           pickup_address_name: frm.doc.pickup_address_name,
           delivery_address_name: frm.doc.delivery_address_name,
-          shipment_parcel: frm.doc.shipment_parcel,
-          description_of_content: frm.doc.description_of_content,
-          pickup_date: frm.doc.pickup_date,
-          pickup_contact_name:
-            frm.doc.pickup_from_type === "Company"
-              ? frm.doc.pickup_contact_person
-              : frm.doc.pickup_contact_name,
-          delivery_contact_name: frm.doc.delivery_contact_name,
-          value_of_goods: frm.doc.value_of_goods,
         },
         callback: function (r) {
           if (r.message && r.message.length) {
@@ -96,7 +85,7 @@ frappe.ui.form.on("Shipment", {
       freeze: true,
       freeze_message: __("Printing Shipping Label"),
       args: {
-        shipment_id: frm.doc.shipment_id,
+        awb_number: frm.doc.awb_number,
         carrier: frm.doc.carrier,
       },
       callback: function (r) {
@@ -108,6 +97,15 @@ frappe.ui.form.on("Shipment", {
             const file = new Blob([array], { type: "application/pdf" });
             const file_url = URL.createObjectURL(file);
             window.open(file_url);
+          } else if (frm.doc.carrier == "Delhivery") {
+            r.message.forEach(async (url) => {
+              let response = await fetch(url);
+              let data = await response.text();
+              let downloadLink = document.createElement("a");
+              downloadLink.href = data;
+              downloadLink.download = frm.doc.awb_number;
+              downloadLink.click();
+            });
           } else {
             if (Array.isArray(r.message)) {
               r.message.forEach((url) => window.open(url));
@@ -131,8 +129,8 @@ frappe.ui.form.on("Shipment", {
       freeze_message: __("Updating Tracking"),
       args: {
         shipment: frm.doc.name,
-        shipment_id: shipment_id,
         carrier: carrier,
+        awb_number: frm.doc.awb_number,
         delivery_notes: delivery_notes,
       },
       callback: function (r) {
@@ -145,30 +143,18 @@ frappe.ui.form.on("Shipment", {
 });
 
 function select_from_available_services(frm, available_services) {
-  var headers = [__("Carrier"), __("Parcel Service Type"), __("Price"), ""];
-
-  const arranged_services = available_services.reduce(
-    (prev, curr) => {
-      if (curr.is_preferred) {
-        prev.preferred_services.push(curr);
-      } else {
-        prev.other_services.push(curr);
-      }
-      return prev;
-    },
-    { preferred_services: [], other_services: [] }
-  );
+  var headers = [__("Carrier"), ""];
 
   frm.render_available_services = function (
     dialog,
     headers,
-    arranged_services
+    available_services
   ) {
     frappe.require("shipment.bundle.js", function () {
       dialog.fields_dict.available_services.$wrapper.html(
         frappe.render_template("shipment_service_selector", {
           header_columns: headers,
-          data: arranged_services,
+          data: available_services,
         })
       );
     });
@@ -190,12 +176,11 @@ function select_from_available_services(frm, available_services) {
     delivery_notes.push(d.delivery_note);
   });
 
-  frm.render_available_services(dialog, headers, arranged_services);
+  frm.render_available_services(dialog, headers, available_services);
 
   dialog.$body.on("click", ".btn", function () {
-    let service_type = $(this).attr("data-type");
-    let service_index = cint($(this).attr("id").split("-")[2]);
-    let service_data = arranged_services[service_type][service_index];
+    let service_index = cint($(this).attr("id").split("-")[1]);
+    let service_data = available_services[service_index];
     frm.select_row(service_data);
   });
 
