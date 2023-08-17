@@ -38,8 +38,19 @@ class BluedartUtils:
                 title=_("Mandatory"),
             )
 
+        self.auth = {
+            "Api_type": "S",
+            "Area": "ALL",
+            "IsAdmin": "",
+            "LicenceKey": self.config["license_key"],
+            "LoginID": self.config["login_id"],
+            "Password": "",
+            "Version": "Ver1.10",
+        }
+
     def create_shipment(
         self,
+        shipment,
         pickup_address,
         delivery_address,
         shipment_parcel,
@@ -50,7 +61,9 @@ class BluedartUtils:
         delivery_company_name,
     ):
         payload = self.generate_create_shipment_payload(
+            shipment,
             pickup_address,
+            pickup_contact,
             delivery_address,
             delivery_contact,
             shipment_parcel,
@@ -59,22 +72,20 @@ class BluedartUtils:
             delivery_company_name,
         )
 
-        auth = {
-            "Api_type": "S",
-            "Area": "ALL",
-            "IsAdmin": "",
-            "LicenceKey": "kh7mnhqkmgegoksipxr0urmqesesseup",
-            "LoginID": "GG940111",
-            "Password": "",
-            "Version": "Ver1.10",
-        }
+        print("payload---------------")
+        print(payload)
 
-        print(type(payload))
+        return {
+            "shipment_id": "",
+            "carrier": "Bluedart",
+            "carrier_service": "",
+            "shipment_label": "",
+            "awb_number": "",
+        }
 
         try:
             client = zeep.Client(wsdl=WAYBILLGENERATIONTEST)
-            print("client generated")
-            response = client.service.GenerateWayBill(payload, auth)
+            response = client.service.GenerateWayBill(payload, self.auth)
             print("response received")
             print(response)
 
@@ -109,7 +120,9 @@ class BluedartUtils:
 
     def generate_create_shipment_payload(
         self,
+        shipment,
         pickup_address,
+        pickup_contact,
         delivery_address,
         delivery_contact,
         shipment_parcel,
@@ -118,29 +131,44 @@ class BluedartUtils:
         delivery_company_name,
     ):
         shipment_parcel = json.loads(shipment_parcel)
+        shipment = json.loads(shipment)
         suborders = []
         weight = 0
+
+        print("------------------------")
+        print(shipment)
+        print(pickup_address)
+        print(pickup_contact)
+        print(delivery_address)
+        print(delivery_contact)
+        print(shipment_parcel)
+        print(description_of_content)
+        print(value_of_goods)
+        print(delivery_company_name)
+        print("------------------------")
         for parcel in shipment_parcel:
             suborders.append(
                 {
-                    "count": parcel["count"],
-                    "description": description_of_content,
+                    "Breadth": parcel["width"],
+                    "Count": parcel["count"],
+                    "Height": parcel["height"],
+                    "Length": parcel["length"],
                 }
             )
             weight += parcel["weight"]
         payload = {
             "Consignee": {
-                "ConsigneeAddress1": "101, Building 1",
-                "ConsigneeAddress2": "New Area",
-                "ConsigneeAddress3": "Surat",
-                "ConsigneeAttention": "MR Mustakim",
+                "ConsigneeAddress1": delivery_address["address_line1"],
+                "ConsigneeAddress2": delivery_address["address_line2"],
+                "ConsigneeAddress3": "",
+                "ConsigneeAttention": delivery_contact["first_name"],
                 "ConsigneeCountryCode": "IN",
-                "ConsigneeEmailID": "xyz@gmail.com",
-                "ConsigneeMobile": 1234567890,
-                "ConsigneeName": "Mustakim",
-                "ConsigneePincode": 395009,
+                "ConsigneeEmailID": delivery_contact["email_id"],
+                "ConsigneeMobile": delivery_contact["mobile_no"],
+                "ConsigneeName": delivery_address["address_title"],
+                "ConsigneePincode": delivery_address["pincode"],
                 "ConsigneeStateCode": "",
-                "ConsigneeTelephone": 12345678890,
+                "ConsigneeTelephone": delivery_contact["phone"],
             },
             "Services": {
                 "AWBNo": "",
@@ -151,12 +179,10 @@ class BluedartUtils:
                     "CommodityDetail2": "Cotton Tshirt",
                     "CommodityDetail3": "cotton",
                 },
-                "CreditReferenceNo": "SSAX15",
+                "CreditReferenceNo": shipment["name"],
                 "CurrencyCode": "INR",
-                "DeclaredValue": 1000,
-                "Dimensions": {
-                    "Dimension": {"Breadth": 12, "Count": 1, "Height": 36, "Length": 14}
-                },
+                "DeclaredValue": value_of_goods,
+                "Dimensions": suborders,
                 "InvoiceNo": "",
                 "IsDedicatedDeliveryNetwork": False,
                 "IsForcePickup": False,
@@ -164,14 +190,14 @@ class BluedartUtils:
                 "IsReversePickup": False,
                 "ItemCount": 1,
                 "PackType": "",
-                "PickupDate": "2023-07-28T18:00:05+05:30",
-                "PickupMode": "",
-                "PickupTime": 1800,
+                "PickupDate": shipment["pickup_date"],
+                "PickupMode": "P",
+                "PickupTime": int(shipment["pickup_to"].replace(":", "")[0:4]),
                 "PickupType": "",
                 "PieceCount": 1,
                 "ProductCode": "D",
                 "ProductType": "Dutiables",
-                "RegisterPickup": False,
+                "RegisterPickup": True,
                 "SpecialInstruction": "API TESTING",
                 "SubProductCode": "",
                 "TotalCashPaytoCustomer": 0,
@@ -204,16 +230,16 @@ class BluedartUtils:
                 },
             },
             "Shipper": {
-                "CustomerAddress1": "Plot no. E-195(A), 2nd Floor,",
-                "CustomerAddress2": "RIICO Industrial Area",
-                "CustomerAddress3": "Mansarovar",
+                "CustomerAddress1": pickup_address["address_line1"],
+                "CustomerAddress2": pickup_address["address_line2"],
+                "CustomerAddress3": "",
                 "CustomerCode": 940111,
-                "CustomerEmailID": "avch@gmail.com",
+                "CustomerEmailID": pickup_contact["email"],
                 "CustomerGSTNumber": "27XXJ64909L1Z4",
-                "CustomerMobile": 1234567890,
-                "CustomerName": "Nona Lifestyle",
-                "CustomerPincode": 122001,
-                "CustomerTelephone": 1234567890,
+                "CustomerMobile": pickup_contact["mobile_no"],
+                "CustomerName": pickup_address["address_title"],
+                "CustomerPincode": pickup_address["pincode"],
+                "CustomerTelephone": pickup_contact["phone"],
                 "IsToPayCustomer": False,
                 "OriginArea": "GGN",
                 "Sender": "Nona Lifestyle",

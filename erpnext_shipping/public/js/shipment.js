@@ -202,7 +202,7 @@ function select_from_available_services(frm, available_services) {
       freeze: true,
       freeze_message: __("Creating Shipment"),
       args: {
-        shipment: frm.doc.name,
+        shipment: frm.doc,
         pickup_from_type: frm.doc.pickup_from_type,
         delivery_to_type: frm.doc.delivery_to_type,
         pickup_address_name: frm.doc.pickup_address_name,
@@ -234,11 +234,13 @@ function select_from_available_services(frm, available_services) {
             title: __("Shipment Created"),
             indicator: "green",
           });
-          frm.events.update_tracking(
-            frm,
-            r.message.carrier,
-            r.message.shipment_id
-          );
+          if (r.message.carrier != "Bluedart") {
+            frm.events.update_tracking(
+              frm,
+              r.message.carrier,
+              r.message.shipment_id
+            );
+          }
         }
       },
     });

@@ -23,6 +23,11 @@ from erpnext_shipping.erpnext_shipping.doctype.delhivery.delhivery import (
     DelhiveryUtils,
 )
 
+from erpnext_shipping.erpnext_shipping.doctype.bluedart.bluedart import (
+    BLUEDART_PROVIDER,
+    BluedartUtils,
+)
+
 
 @frappe.whitelist()
 def fetch_shipping_services(
@@ -31,7 +36,6 @@ def fetch_shipping_services(
 ):
     # Return Shipping Rates for the various Shipping Providers
     shipment_services = []
-    aramex_enabled = frappe.db.get_single_value("Aramex", "enabled")
     pickup_address = get_address(pickup_address_name)
     delivery_address = get_address(delivery_address_name)
 
@@ -39,16 +43,21 @@ def fetch_shipping_services(
         pickup_address.get("country") == "India"
         and delivery_address.get("country") == "India"
     ):
-        delhivery_enabled = frappe.db.get_single_value("Delhivery", "enabled")
-        if delhivery_enabled:
+        if frappe.db.get_single_value("Delhivery", "enabled"):
             shipment_services.append(
                 {
                     "carrier": DELHIVERY_PROVIDER,
                 }
             )
+        if frappe.db.get_single_value("Bluedart", "enabled"):
+            shipment_services.append(
+                {
+                    "carrier": BLUEDART_PROVIDER,
+                }
+            )
 
     else:
-        if aramex_enabled:
+        if frappe.db.get_single_value("Aramex", "enabled"):
             shipment_services.append({"carrier": ARAMEX_PROVIDER})
 
     return shipment_services
@@ -121,6 +130,20 @@ def create_shipment(
             delivery_company_name=delivery_company_name,
         )
 
+    elif service_info["carrier"] == BLUEDART_PROVIDER:
+        bluedart = BluedartUtils()
+        shipment_info = bluedart.create_shipment(
+            shipment=shipment,
+            pickup_address=pickup_address,
+            delivery_address=delivery_address,
+            shipment_parcel=shipment_parcel,
+            description_of_content=description_of_content,
+            value_of_goods=value_of_goods,
+            pickup_contact=pickup_contact,
+            delivery_contact=delivery_contact,
+            delivery_company_name=delivery_company_name,
+        )
+
     if shipment_info:
         fields = [
             "shipment_id",
@@ -131,7 +154,7 @@ def create_shipment(
         ]
         for field in fields:
             frappe.db.set_value("Shipment", shipment, field, shipment_info.get(field))
-        frappe.db.set_value("Shipment", shipment, "status", "Booked")
+        # frappe.db.set_value("Shipment", shipment, "status", "Booked")
 
         if delivery_notes:
             update_delivery_note(
@@ -163,6 +186,10 @@ def update_tracking(shipment, carrier, awb_number, delivery_notes=[]):
     if carrier == DELHIVERY_PROVIDER:
         delhivery = DelhiveryUtils()
         tracking_data = delhivery.get_tracking_data(awb_number)
+
+    # if carrier == BLUEDART_PROVIDER:
+    #     bluedart = BluedartUtils()
+    #     tracking_data = bluedart.get_tracking_data(awb_number)
 
     if tracking_data:
         # fields = ['awb_number', 'tracking_status',
