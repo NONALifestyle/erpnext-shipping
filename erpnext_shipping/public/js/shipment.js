@@ -130,6 +130,7 @@ frappe.ui.form.on("Shipment", {
       args: {
         shipment: frm.doc.name,
         carrier: carrier,
+        shipment_id: shipment_id,
         awb_number: frm.doc.awb_number,
         delivery_notes: delivery_notes,
       },

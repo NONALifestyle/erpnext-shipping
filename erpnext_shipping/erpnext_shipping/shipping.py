@@ -116,7 +116,6 @@ def create_shipment(
             shipment_parcel=shipment_parcel,
             description_of_content=description_of_content,
             value_of_goods=value_of_goods,
-            pickup_contact=pickup_contact,
             delivery_contact=delivery_contact,
             delivery_company_name=delivery_company_name,
         )
@@ -153,7 +152,7 @@ def print_shipping_label(carrier, awb_number):
 
 
 @frappe.whitelist()
-def update_tracking(shipment, carrier, awb_number, delivery_notes=[]):
+def update_tracking(shipment, carrier, shipment_id, awb_number, delivery_notes=[]):
     # Update Tracking info in Shipment
     tracking_data = None
     if carrier == ARAMEX_PROVIDER:
@@ -162,7 +161,8 @@ def update_tracking(shipment, carrier, awb_number, delivery_notes=[]):
 
     if carrier == DELHIVERY_PROVIDER:
         delhivery = DelhiveryUtils()
-        tracking_data = delhivery.get_tracking_data(awb_number)
+        """In case of Delhivery, shipment_id is the LR Number which is used for tracking and awb_number is used to generate the url for end user"""
+        tracking_data = delhivery.get_tracking_data(awb_number, lrnum=shipment_id)
 
     if tracking_data:
         # fields = ['awb_number', 'tracking_status',
@@ -173,8 +173,8 @@ def update_tracking(shipment, carrier, awb_number, delivery_notes=[]):
 
         frappe.db.set_value("Shipment", shipment, "status", "Booked")
 
-    if delivery_notes:
-        update_delivery_note(delivery_notes=delivery_notes, tracking_info=tracking_data)
+    # if delivery_notes:
+    #     update_delivery_note(delivery_notes=delivery_notes, tracking_info=tracking_data)
 
 
 def update_delivery_note(delivery_notes, shipment_info=None, tracking_info=None):
