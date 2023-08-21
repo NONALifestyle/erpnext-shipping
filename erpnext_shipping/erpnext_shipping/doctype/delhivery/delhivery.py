@@ -13,11 +13,6 @@ from frappe.utils.password import get_decrypted_password
 from erpnext_shipping.erpnext_shipping.utils import show_error_alert
 
 DELHIVERY_PROVIDER = "Delhivery"
-GENERATE_TOKEN_URL = "https://btob-api-dev.delhivery.com/ums/login/"
-CREATE_SHIPMENTS_URL = "https://btob-api-dev.delhivery.com/v3/manifest"
-GET_SHIPMENT_URL = "https://btob-api-dev.delhivery.com/v3/manifest?job_id="
-PRINT_LABEL_URL = "https://btob-api-dev.delhivery.com/v3/get-label-urls/a4"
-TRACK_SHIPMENTS_URL = "https://btob-api-dev.delhivery.com/v3/track/"
 
 
 class Delhivery(Document):
@@ -62,6 +57,8 @@ class DelhiveryUtils:
         )
         count = 0
 
+        create_shipment_url = self.config["create_shipment_url"]
+
         while count < 3:
             try:
                 headers = {
@@ -70,7 +67,9 @@ class DelhiveryUtils:
                     "Authorization": f"Bearer {self.config['token']}",
                 }
                 response = requests.post(
-                    url=CREATE_SHIPMENTS_URL, headers=headers, data=json.dumps(payload)
+                    url=create_shipment_url,
+                    headers=headers,
+                    data=json.dumps(payload),
                 )
                 if response.status_code == 200:
                     break
@@ -89,16 +88,17 @@ class DelhiveryUtils:
         shipment_value = shipment["status"]["value"]
 
         return {
-            "shipment_id": response_data["job_id"],
+            "shipment_id": shipment_value["lrnum"],
             "carrier": "Delhivery",
             "carrier_service": "",
             "shipment_label": "",
-            "awb_number": shipment_value["lrnum"],
+            "awb_number": shipment_value["master_waybill"],
         }
 
     def get_label(self, awb_number):
         # Retrieve shipment label from Delhivery
         count = 0
+        print_label_url = self.config["print_label_url"]
         while count < 3:
             try:
                 headers = {
@@ -107,7 +107,7 @@ class DelhiveryUtils:
                     "Authorization": f"Bearer {self.config['token']}",
                 }
                 response = requests.get(
-                    url=f"{PRINT_LABEL_URL}/{awb_number}?document=true", headers=headers
+                    url=f"{print_label_url}/{awb_number}?document=true", headers=headers
                 )
                 if response.status_code == 200:
                     break
@@ -123,8 +123,10 @@ class DelhiveryUtils:
 
         return shipment_label["data"]
 
-    def get_tracking_data(self, awb_number):
+    def get_tracking_data(self, awb_number, lrnum):
         count = 0
+        track_shipment_url = self.config["track_shipment_url"]
+        tracking_page_url = self.config["tracking_page_url"]
         while count < 3:
             try:
                 headers = {
@@ -133,7 +135,7 @@ class DelhiveryUtils:
                     "Authorization": f"Bearer {self.config['token']}",
                 }
                 response = requests.get(
-                    url=f"{TRACK_SHIPMENTS_URL}{awb_number}", headers=headers
+                    url=f"{track_shipment_url}/{lrnum}", headers=headers
                 )
                 if response.status_code == 200:
                     break
@@ -148,7 +150,7 @@ class DelhiveryUtils:
         tracking_data = json.loads(response.text)
         return {
             "tracking_status": tracking_data["data"]["status"],
-            "tracking_url": "",
+            "tracking_url": f"{tracking_page_url}/{awb_number}",
         }
 
     def generate_create_shipment_payload(
@@ -195,6 +197,7 @@ class DelhiveryUtils:
 
     def get_shipment(self, job_id):
         count = 0
+        get_shipment_url = self.config["get_shipment_url"]
         while count < 3:
             try:
                 headers = {
@@ -203,7 +206,7 @@ class DelhiveryUtils:
                     "Authorization": f"Bearer {self.config['token']}",
                 }
                 response = requests.get(
-                    url=f"{GET_SHIPMENT_URL}{job_id}", headers=headers
+                    url=f"{get_shipment_url}?job_id={job_id}", headers=headers
                 )
                 if response.status_code == 200:
                     response_data = json.loads(response.text)
@@ -233,8 +236,11 @@ class DelhiveryUtils:
                 "username": self.config["user_name"],
                 "password": self.config["password"],
             }
+
+            generate_token_url = self.config["generate_token_url"]
+
             response = requests.post(
-                url=GENERATE_TOKEN_URL, headers=headers, data=json.dumps(payload)
+                url=generate_token_url, headers=headers, data=json.dumps(payload)
             )
             response_data = json.loads(response.text)
             self.config["token"] = response_data["jwt"]
