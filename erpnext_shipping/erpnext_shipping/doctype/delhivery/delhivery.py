@@ -146,8 +146,19 @@ class DelhiveryUtils:
             except Exception as e:
                 frappe.throw(e)
         tracking_data = json.loads(response.text)
+        status = tracking_data["data"]["status"]
+        delhivery_tracking_status_map = {
+            "MANIFESTED": "PICKUP_REQUESTED",
+            "PICKED_UP": "SHIPPED",
+            "LEFT_ORIGIN": "SHIPPED",
+            "REACH_DESTINATION": "SHIPPED",
+            "UNDEL_REATTEMPT": "OUT_FOR_DELIVERY",
+            "PART_DEL": "SHIPPED",
+            "OFD": "OUT_FOR_DELIVERY",
+            "DELIVERED": "DELIVERED",
+        }
         return {
-            "tracking_status": tracking_data["data"]["status"],
+            "tracking_status": delhivery_tracking_status_map.get(status),
             "tracking_url": "",
         }
 
