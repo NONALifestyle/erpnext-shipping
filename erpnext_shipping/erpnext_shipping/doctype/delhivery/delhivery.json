@@ -9,7 +9,13 @@
   "enabled",
   "user_name",
   "password",
-  "token"
+  "token",
+  "generate_token_url",
+  "create_shipment_url",
+  "get_shipment_url",
+  "print_label_url",
+  "track_shipment_url",
+  "tracking_page_url"
  ],
  "fields": [
   {
@@ -36,11 +42,41 @@
    "fieldname": "token",
    "fieldtype": "Long Text",
    "label": "Token"
+  },
+  {
+   "fieldname": "generate_token_url",
+   "fieldtype": "Data",
+   "label": "Generate Token URL"
+  },
+  {
+   "fieldname": "create_shipment_url",
+   "fieldtype": "Data",
+   "label": "Create Shipment URL"
+  },
+  {
+   "fieldname": "get_shipment_url",
+   "fieldtype": "Data",
+   "label": "Get Shipment URL"
+  },
+  {
+   "fieldname": "print_label_url",
+   "fieldtype": "Data",
+   "label": "Print Label URL"
+  },
+  {
+   "fieldname": "track_shipment_url",
+   "fieldtype": "Data",
+   "label": "Track Shipment URL"
+  },
+  {
+   "fieldname": "tracking_page_url",
+   "fieldtype": "Data",
+   "label": "Tracking Page URL"
   }
  ],
  "issingle": 1,
  "links": [],
- "modified": "2023-06-20 15:21:08.990444",
+ "modified": "2023-08-18 13:38:56.095143",
  "modified_by": "Administrator",
  "module": "ERPNext Shipping",
  "name": "Delhivery",
