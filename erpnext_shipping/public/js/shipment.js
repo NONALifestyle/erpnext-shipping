@@ -16,7 +16,7 @@ frappe.ui.form.on("Shipment", {
         },
         __("Tools")
       );
-      if (frm.doc.tracking_status != "Delivered") {
+      if (frm.doc.tracking_status != "DELIVERED") {
         frm.add_custom_button(
           __("Update Tracking"),
           function () {
@@ -123,23 +123,59 @@ frappe.ui.form.on("Shipment", {
     (frm.doc.shipment_delivery_note || []).forEach((d) => {
       delivery_notes.push(d.delivery_note);
     });
-    frappe.call({
-      method: "erpnext_shipping.erpnext_shipping.shipping.update_tracking",
-      freeze: true,
-      freeze_message: __("Updating Tracking"),
-      args: {
-        shipment: frm.doc.name,
-        carrier: carrier,
-        shipment_id: shipment_id,
-        awb_number: frm.doc.awb_number,
-        delivery_notes: delivery_notes,
-      },
-      callback: function (r) {
-        if (!r.exc) {
-          frm.reload_doc();
+    if (frm.doc.service_provider == "Local") {
+      const custom_dialog = new frappe.ui.Dialog({
+        title: __("Select Service to Create Shipment"),
+        fields: [
+          {
+            fieldtype: "Select",
+            fieldname: "tracking_status",
+            label: __("Tracking Status"),
+            options: ["DELIVERED", "OUT_FOR_DELIVERY", "SHIPPED", "PICKUP_REQUESTED"],
+            reqd: 1,
+          },
+        ],
+        primary_action(values){
+          frappe.call({
+            method: "erpnext_shipping.erpnext_shipping.shipping.update_tracking",
+            freeze: true,
+            freeze_message: __("Updating Tracking"),
+            args: {
+              shipment: frm.doc.name,
+              carrier: carrier,
+              shipment_id: shipment_id,
+              awb_number: frm.doc.awb_number,
+              tracking_status: values.tracking_status,
+            },
+            callback: function (r) {
+              if (!r.exc) {
+                frm.reload_doc();
+              }
+            },
+          });
+          custom_dialog.hide()
         }
-      },
-    });
+      });
+      custom_dialog.show()
+    }
+    else{
+      frappe.call({
+        method: "erpnext_shipping.erpnext_shipping.shipping.update_tracking",
+        freeze: true,
+        freeze_message: __("Updating Tracking"),
+        args: {
+          shipment: frm.doc.name,
+          carrier: carrier,
+          shipment_id: shipment_id,
+          awb_number: frm.doc.awb_number,
+        },
+        callback: function (r) {
+          if (!r.exc) {
+            frm.reload_doc();
+          }
+        },
+      });
+    }
   },
 });
 
@@ -197,52 +233,129 @@ function select_from_available_services(frm, available_services) {
       delivery_company = frm.doc.delivery_company;
     }
     if (!delivery_company) frappe.throw(__("Please select Delivery Details"));
-
-    frappe.call({
-      method: "erpnext_shipping.erpnext_shipping.shipping.create_shipment",
-      freeze: true,
-      freeze_message: __("Creating Shipment"),
-      args: {
-        shipment: frm.doc.name,
-        pickup_from_type: frm.doc.pickup_from_type,
-        delivery_to_type: frm.doc.delivery_to_type,
-        pickup_address_name: frm.doc.pickup_address_name,
-        delivery_address_name: frm.doc.delivery_address_name,
-        shipment_parcel: frm.doc.shipment_parcel,
-        description_of_content: frm.doc.description_of_content,
-        pickup_date: frm.doc.pickup_date,
-        pickup_time: frm.doc.pickup_from,
-        pickup_contact_name:
-          frm.doc.pickup_from_type === "Company"
-            ? frm.doc.pickup_contact_person
-            : frm.doc.pickup_contact_name,
-        delivery_contact_name: frm.doc.delivery_contact_name,
-        value_of_goods: frm.doc.value_of_goods,
-        service_data: service_data,
-        pickup_company_name:
-          frm.doc.pickup_from_type === "Company" ? frm.doc.pickup_company : "",
-        delivery_company_name: delivery_company,
-        delivery_notes: delivery_notes,
-      },
-      callback: function (r) {
-        if (!r.exc) {
-          frm.reload_doc();
-          frappe.msgprint({
-            message: __("Shipment {1} has been created with {0}.", [
-              r.message.carrier,
-              r.message.shipment_id.bold(),
-            ]),
-            title: __("Shipment Created"),
-            indicator: "green",
+    if (service_data.carrier == "Custom"){
+      const custom_dialog = new frappe.ui.Dialog({
+        title: __("Select Service to Create Shipment"),
+        fields: [
+          {
+            fieldtype: "Data",
+            fieldname: "carrier_service",
+            label: __("Carrier Services"),
+            reqd: 1,
+          },
+          {
+            fieldtype: "Data",
+            fieldname: "awb_number",
+            label: __("AWB Number"),
+            reqd: 1
+          },
+          {
+            fieldtype: "Select",
+            fieldname: "tracking_status",
+            label: __("Tracking Status"),
+            options: ["DELIVERED", "OUT_FOR_DELIVERY", "SHIPPED", "PICKUP_REQUESTED"],
+            reqd: 1,
+          },
+        ],
+        primary_action(values){
+          service_data = {"carrier": values.carrier_service, "awb_number": values.awb_number, "tracking_status": values.tracking_status}
+          frappe.call({
+            method: "erpnext_shipping.erpnext_shipping.shipping.create_shipment",
+            freeze: true,
+            freeze_message: __("Creating Shipment"),
+            args: {
+              shipment: frm.doc.name,
+              pickup_from_type: frm.doc.pickup_from_type,
+              delivery_to_type: frm.doc.delivery_to_type,
+              pickup_address_name: frm.doc.pickup_address_name,
+              delivery_address_name: frm.doc.delivery_address_name,
+              shipment_parcel: frm.doc.shipment_parcel,
+              description_of_content: frm.doc.description_of_content,
+              pickup_date: frm.doc.pickup_date,
+              pickup_time: frm.doc.pickup_from,
+              pickup_contact_name:
+                frm.doc.pickup_from_type === "Company"
+                  ? frm.doc.pickup_contact_person
+                  : frm.doc.pickup_contact_name,
+              delivery_contact_name: frm.doc.delivery_contact_name,
+              value_of_goods: frm.doc.value_of_goods,
+              service_data: service_data,
+              pickup_company_name:
+                frm.doc.pickup_from_type === "Company" ? frm.doc.pickup_company : "",
+              delivery_company_name: delivery_company,
+              delivery_notes: delivery_notes,
+            },
+            callback: function (r) {
+              if (!r.exc) {
+                frm.reload_doc();
+                frappe.msgprint({
+                  message: __("Shipment {1} has been created with {0}.", [
+                    r.message.carrier,
+                    r.message.shipment_id.bold(),
+                  ]),
+                  title: __("Shipment Created"),
+                  indicator: "green",
+                });
+                frm.events.update_tracking(
+                  frm,
+                  r.message.carrier,
+                  r.message.shipment_id
+                );
+              }
+            },
           });
-          frm.events.update_tracking(
-            frm,
-            r.message.carrier,
-            r.message.shipment_id
-          );
+          custom_dialog.hide()
         }
-      },
-    });
+      });
+      custom_dialog.show()
+    }
+    else{
+      frappe.call({
+        method: "erpnext_shipping.erpnext_shipping.shipping.create_shipment",
+        freeze: true,
+        freeze_message: __("Creating Shipment"),
+        args: {
+          shipment: frm.doc.name,
+          pickup_from_type: frm.doc.pickup_from_type,
+          delivery_to_type: frm.doc.delivery_to_type,
+          pickup_address_name: frm.doc.pickup_address_name,
+          delivery_address_name: frm.doc.delivery_address_name,
+          shipment_parcel: frm.doc.shipment_parcel,
+          description_of_content: frm.doc.description_of_content,
+          pickup_date: frm.doc.pickup_date,
+          pickup_time: frm.doc.pickup_from,
+          pickup_contact_name:
+            frm.doc.pickup_from_type === "Company"
+              ? frm.doc.pickup_contact_person
+              : frm.doc.pickup_contact_name,
+          delivery_contact_name: frm.doc.delivery_contact_name,
+          value_of_goods: frm.doc.value_of_goods,
+          service_data: service_data,
+          pickup_company_name:
+            frm.doc.pickup_from_type === "Company" ? frm.doc.pickup_company : "",
+          delivery_company_name: delivery_company,
+          delivery_notes: delivery_notes,
+        },
+        callback: function (r) {
+          if (!r.exc) {
+            frm.reload_doc();
+            frappe.msgprint({
+              message: __("Shipment {1} has been created with {0}.", [
+                r.message.carrier,
+                r.message.shipment_id.bold(),
+              ]),
+              title: __("Shipment Created"),
+              indicator: "green",
+            });
+            frm.events.update_tracking(
+              frm,
+              r.message.carrier,
+              r.message.shipment_id
+            );
+          }
+        },
+      });
+    }
     dialog.hide();
   };
   dialog.show();
