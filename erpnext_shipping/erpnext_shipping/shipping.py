@@ -4,6 +4,7 @@
 from __future__ import unicode_literals
 import frappe
 import json
+from nona.nona.notifications.notifications import send_delivery_status_update_notification
 from six import string_types
 from frappe import _
 from frappe.utils import flt
@@ -30,7 +31,7 @@ def fetch_shipping_services(
     delivery_address_name,
 ):
     # Return Shipping Rates for the various Shipping Providers
-    shipment_services = []
+    shipment_services = [{"carrier": "Custom"}]
     aramex_enabled = frappe.db.get_single_value("Aramex", "enabled")
     pickup_address = get_address(pickup_address_name)
     delivery_address = get_address(delivery_address_name)
@@ -120,6 +121,19 @@ def create_shipment(
             delivery_company_name=delivery_company_name,
         )
 
+    else:
+        fields = [
+            "carrier",
+            "awb_number",
+            "tracking_status",
+        ]
+        for field in fields:
+            frappe.db.set_value("Shipment", shipment, field, service_info.get(field))
+
+        frappe.db.set_value("Shipment", shipment, "status", "Booked")
+        frappe.db.set_value("Shipment", shipment, "service_provider", "Local")
+        frappe.db.set_value("Shipment", shipment, "shipment_id", shipment)
+
     if shipment_info:
         fields = [
             "shipment_id",
@@ -131,6 +145,7 @@ def create_shipment(
         for field in fields:
             frappe.db.set_value("Shipment", shipment, field, shipment_info.get(field))
         frappe.db.set_value("Shipment", shipment, "status", "Booked")
+        frappe.db.set_value("Shipment", shipment, "service_provider", "Partner")
 
         if delivery_notes:
             update_delivery_note(
@@ -152,17 +167,21 @@ def print_shipping_label(carrier, awb_number):
 
 
 @frappe.whitelist()
-def update_tracking(shipment, carrier, shipment_id, awb_number, delivery_notes=[]):
+def update_tracking(shipment, carrier, shipment_id, awb_number, tracking_status=None):
     # Update Tracking info in Shipment
+    prev_shipment = frappe.get_doc("Shipment", shipment)
     tracking_data = None
     if carrier == ARAMEX_PROVIDER:
         aramex = AramexUtils()
         tracking_data = aramex.get_tracking_data(awb_number)
 
-    if carrier == DELHIVERY_PROVIDER:
+    elif carrier == DELHIVERY_PROVIDER:
         delhivery = DelhiveryUtils()
         """In case of Delhivery, shipment_id is the LR Number which is used for tracking and awb_number is used to generate the url for end user"""
         tracking_data = delhivery.get_tracking_data(awb_number, lrnum=shipment_id)
+
+    else:
+        frappe.db.set_value("Shipment", shipment, "tracking_status", tracking_status)
 
     if tracking_data:
         # fields = ['awb_number', 'tracking_status',
@@ -172,6 +191,9 @@ def update_tracking(shipment, carrier, shipment_id, awb_number, delivery_notes=[
             frappe.db.set_value("Shipment", shipment, field, tracking_data.get(field))
 
         frappe.db.set_value("Shipment", shipment, "status", "Booked")
+
+    shipment = frappe.get_doc("Shipment", shipment)
+    send_delivery_status_update_notification(shipment, prev_shipment)
 
     # if delivery_notes:
     #     update_delivery_note(delivery_notes=delivery_notes, tracking_info=tracking_data)
