@@ -238,10 +238,16 @@ function select_from_available_services(frm, available_services) {
         title: __("Select Service to Create Shipment"),
         fields: [
           {
-            fieldtype: "Data",
+            fieldtype: "Link",
             fieldname: "carrier_service",
             label: __("Carrier Services"),
+            options: "Supplier",
             reqd: 1,
+            get_query: () => ({
+              filters: {
+                is_transporter: 1,
+              }
+            })
           },
           {
             fieldtype: "Data",
