@@ -132,7 +132,7 @@ def create_shipment(
 
         frappe.db.set_value("Shipment", shipment, "status", "Booked")
         frappe.db.set_value("Shipment", shipment, "service_provider", "Local")
-        frappe.db.set_value("Shipment", shipment, "shipment_id", shipment)
+        frappe.db.set_value("Shipment", shipment, "shipment_id", service_info.get("awb_number"))
 
     if shipment_info:
         fields = [
